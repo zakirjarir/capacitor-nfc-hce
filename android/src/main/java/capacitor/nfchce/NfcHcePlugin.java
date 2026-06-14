@@ -1,7 +1,8 @@
 package capacitor.nfchce;
 
+import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
+import android.content.pm.PackageManager;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -16,7 +17,7 @@ public class NfcHcePlugin extends Plugin {
     @Override
     public void load() {
         super.load();
-        // HCE বাস্তবায়নকে প্লাগইনের একটি রেফারেন্স দিয়ে ইনিশিয়ালাইজ করা হয় ইভেন্ট নির্গমনের জন্য
+        // Initialize the HCE implementation with a reference to the plugin for event emission
         implementation.setPlugin(this);
     }
 
@@ -31,48 +32,103 @@ public class NfcHcePlugin extends Plugin {
 
     @PluginMethod
     public void startHce(PluginCall call) {
-        String aid = call.getString("aid");
-        if (aid == null) {
-            call.reject("AID অবশ্যই প্রদান করতে হবে");
-            return;
-        }
         try {
-            implementation.startHceService(getContext(), aid);
+            Context context = getContext();
+            PackageManager pm = context.getPackageManager();
+            ComponentName componentName = new ComponentName(context, NfcHceService.class);
+            
+            // Enable the HCE service component dynamically
+            pm.setComponentEnabledSetting(
+                    componentName,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+            );
+            
             call.resolve();
         } catch (Exception e) {
-            call.reject("HCE পরিষেবা শুরু করতে ব্যর্থ হয়েছে", e);
+            call.reject("Failed to start HCE service", e);
         }
     }
 
     @PluginMethod
     public void stopHce(PluginCall call) {
         try {
-            implementation.stopHceService(getContext());
+            Context context = getContext();
+            PackageManager pm = context.getPackageManager();
+            ComponentName componentName = new ComponentName(context, NfcHceService.class);
+            
+            // Disable the HCE service component dynamically
+            pm.setComponentEnabledSetting(
+                    componentName,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP
+            );
+            
             call.resolve();
         } catch (Exception e) {
-            call.reject("HCE পরিষেবা বন্ধ করতে ব্যর্থ হয়েছে", e);
+            call.reject("Failed to stop HCE service", e);
         }
     }
 
     @PluginMethod
-    public void setCardData(PluginCall call) {
-        String data = call.getString("data");
-        if (data == null) {
-            call.reject("ডেটা অবশ্যই প্রদান করতে হবে");
+    public void sendResponse(PluginCall call) {
+        String response = call.getString("response");
+        if (response == null) {
+            call.reject("Response data must be provided");
             return;
         }
         try {
-            implementation.setApduResponse(data);
+            NfcHceService.sendApduResponse(response);
             call.resolve();
         } catch (Exception e) {
-            call.reject("কার্ড ডেটা সেট করতে ব্যর্থ হয়েছে", e);
+            call.reject("Failed to send APDU response", e);
         }
     }
 
-    // HCE পরিষেবা থেকে ওয়েব স্তরে ইভেন্ট নির্গমনের পদ্ধতি
-    public void onCardDataReceived(String data) {
+    @PluginMethod
+    public void setResponseCache(PluginCall call) {
+        try {
+            JSObject cacheObj = call.getObject("cache");
+            if (cacheObj == null) {
+                call.reject("Cache object must be provided");
+                return;
+            }
+            
+            java.util.Map<String, String> newCache = new java.util.HashMap<>();
+            java.util.Iterator<String> keys = cacheObj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                newCache.put(key, cacheObj.getString(key));
+            }
+            
+            NfcHce.setResponseCache(newCache);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Failed to set response cache", e);
+        }
+    }
+
+    @PluginMethod
+    public void clearResponseCache(PluginCall call) {
+        try {
+            NfcHce.clearResponseCache();
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Failed to clear response cache", e);
+        }
+    }
+
+    // Method to emit APDU command event from HCE service to web layer
+    public void onApduCommand(String command) {
         JSObject ret = new JSObject();
-        ret.put("value", data);
-        notifyListeners("cardDataReceived", ret);
+        ret.put("command", command);
+        notifyListeners("onApduCommand", ret);
+    }
+
+    // Method to emit deactivation event
+    public void onHceDeactivated(int reason) {
+        JSObject ret = new JSObject();
+        ret.put("reason", reason);
+        notifyListeners("onHceDeactivated", ret);
     }
 }

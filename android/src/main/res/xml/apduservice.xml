@@ -4,8 +4,8 @@
 
     <aid-group android:category="other"
         android:description="@string/aid_description">
-        <!-- এখানে আপনার অ্যাপ্লিকেশন আইডি (AID) যোগ করুন -->
-        <!-- উদাহরণ: F0010203040506 -->
+        <!-- Add your Application ID (AID) here -->
+        <!-- Example: F0010203040506 -->
         <aid-filter android:name="F0010203040506" />
     </aid-group>
 </host-apdu-service>

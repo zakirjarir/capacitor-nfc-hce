@@ -1,4 +1,5 @@
-import { WebPlugin, PluginListenerHandle } from '@capacitor/core';
+import { WebPlugin } from '@capacitor/core';
+import type { PluginListenerHandle } from '@capacitor/core';
 
 import type { NfcHcePlugin } from './definitions';
 
@@ -8,8 +9,8 @@ export class NfcHceWeb extends WebPlugin implements NfcHcePlugin {
     return options;
   }
 
-  async startHce(options: { aid: string }): Promise<void> {
-    console.warn('NFC HCE is not available on the web.', options);
+  async startHce(): Promise<void> {
+    console.warn('NFC HCE is not available on the web.');
     throw this.unimplemented('NFC HCE is not available on the web.');
   }
 
@@ -18,16 +19,27 @@ export class NfcHceWeb extends WebPlugin implements NfcHcePlugin {
     throw this.unimplemented('NFC HCE is not available on the web.');
   }
 
-  async setCardData(options: { data: string }): Promise<void> {
+  async sendResponse(options: { response: string }): Promise<void> {
     console.warn('NFC HCE is not available on the web.', options);
     throw this.unimplemented('NFC HCE is not available on the web.');
   }
 
-  async addListener(
-    eventName: 'cardDataReceived',
-    listenerFunc: (data: { value: string }) => void,
-  ): Promise<PluginListenerHandle> {
+  async setResponseCache(options: { cache: Record<string, string> }): Promise<void> {
+    console.warn('NFC HCE is not available on the web.', options);
+    throw this.unimplemented('NFC HCE is not available on the web.');
+  }
+
+  async clearResponseCache(): Promise<void> {
     console.warn('NFC HCE is not available on the web.');
+    throw this.unimplemented('NFC HCE is not available on the web.');
+  }
+
+  // @ts-ignore
+  async addListener(
+    eventName: string,
+    listenerFunc: (...args: any[]) => void,
+  ): Promise<PluginListenerHandle> {
+    console.warn(`NFC HCE is not available on the web. Event: ${eventName}`, listenerFunc);
     throw this.unimplemented('NFC HCE is not available on the web.');
   }
 }

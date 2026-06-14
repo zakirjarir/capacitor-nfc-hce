@@ -1,13 +1,15 @@
 package capacitor.nfchce;
 
-import android.content.Context;
-import android.content.Intent;
 import com.getcapacitor.Logger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 public class NfcHce {
 
-    private static NfcHcePlugin plugin; // ইভেন্ট নির্গমনের জন্য প্লাগইনের রেফারেন্স
-    private static String apduResponseData = ""; // APDU রেসপন্স হিসাবে পাঠানোর জন্য ডেটা
+    private static NfcHcePlugin plugin; // Reference to the plugin for event emission
+    
+    // Response cache: Key is Expected APDU (Hex), Value is Response (Hex)
+    private static final ConcurrentHashMap<String, String> responseCache = new ConcurrentHashMap<>();
 
     public void setPlugin(NfcHcePlugin plugin) {
         NfcHce.plugin = plugin;
@@ -17,38 +19,46 @@ public class NfcHce {
         Logger.info("Echo", value);
         return value;
     }
-
-    public void startHceService(Context context, String aid) {
-        // এই মেথডটি মূলত নিশ্চিত করবে যে পরিষেবাটি সক্ষম এবং কনফিগার করা হয়েছে।
-        // আসল পরিষেবা শুরু হয় যখন একটি NFC রিডার ডিভাইসের সাথে ইন্টারঅ্যাক্ট করে।
-        // আমাদের নিশ্চিত করতে হবে যে AndroidManifest.xml পরিষেবাটির জন্য সঠিকভাবে কনফিগার করা হয়েছে।
-        Logger.info("NfcHce", "Starting HCE service with AID: " + aid);
-        // এখানে সরাসরি পরিষেবা শুরু করার কোনো কল নেই, কারণ HostApduService সিস্টেম দ্বারা শুরু হয়।
-        // আমরা AID নিবন্ধন করার জন্য AndroidManifest.xml ব্যবহার করব।
+    
+    // Method to populate the cache from JS
+    public static void setResponseCache(Map<String, String> newCache) {
+        responseCache.clear();
+        if (newCache != null) {
+            for (Map.Entry<String, String> entry : newCache.entrySet()) {
+                // Store everything in upper case for case-insensitive exact matching
+                responseCache.put(entry.getKey().toUpperCase(), entry.getValue());
+            }
+        }
+        Logger.info("NfcHce", "Response cache updated. Entries: " + responseCache.size());
+    }
+    
+    // Method to clear the cache from JS
+    public static void clearResponseCache() {
+        responseCache.clear();
+        Logger.info("NfcHce", "Response cache cleared.");
+    }
+    
+    // Method to retrieve a cached response quickly
+    public static String getCachedResponse(String hexApdu) {
+        if (hexApdu == null) return null;
+        return responseCache.get(hexApdu.toUpperCase());
     }
 
-    public void stopHceService(Context context) {
-        Logger.info("NfcHce", "Stopping HCE service.");
-        // এখানে সরাসরি পরিষেবা বন্ধ করার কোনো কল নেই, কারণ HostApduService সিস্টেম দ্বারা বন্ধ হয়।
-        // আমরা ম্যানিফেস্টের উপর নির্ভর করব।
-    }
-
-    public void setApduResponse(String data) {
-        apduResponseData = data;
-        Logger.info("NfcHce", "APDU response data set: " + data);
-    }
-
-    // এই মেথডটি NfcHceService দ্বারা কল করা হবে যখন ডেটা প্রাপ্ত হবে
-    public static void onCardDataReceived(String data) {
+    // This method is called by NfcHceService when an APDU command is received
+    public static void onApduCommand(String command) {
         if (plugin != null) {
-            plugin.onCardDataReceived(data);
+            plugin.onApduCommand(command);
         } else {
-            Logger.warn("NfcHce", "Plugin reference is null, cannot emit cardDataReceived event.");
+            Logger.warn("NfcHce", "Plugin reference is null, cannot emit onApduCommand event.");
         }
     }
 
-    // এই মেথডটি NfcHceService দ্বারা কল করা হবে রেসপন্স ডেটা পাওয়ার জন্য
-    public static String getApduResponseData() {
-        return apduResponseData;
+    // This method is called by NfcHceService when the HCE session is deactivated
+    public static void onHceDeactivated(int reason) {
+        if (plugin != null) {
+            plugin.onHceDeactivated(reason);
+        } else {
+            Logger.warn("NfcHce", "Plugin reference is null, cannot emit onHceDeactivated event.");
+        }
     }
 }
